@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SNAKE // RETRO ARCADE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+:root{
+  --g:#00ff41;--gd:#00a828;--gb:#003b12;--gg:rgba(0,255,65,0.35);
+  --bg:#020c02;--red:#ff2244;--amb:#ffb700;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;min-height:100%;}
+body{
+  background:var(--bg);color:var(--g);
+  font-family:'VT323',monospace;
+  display:flex;flex-direction:column;align-items:center;
+  overflow-x:hidden;overflow-y:auto;user-select:none;-webkit-user-select:none;
+}
+body::before{content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,0.13) 2px,rgba(0,0,0,0.13) 4px);
+  pointer-events:none;z-index:200;}
+body::after{content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,0.65) 100%);
+  pointer-events:none;z-index:199;}
+
+@keyframes flicker{0%,94%,100%{opacity:1}95%{opacity:.5}96.5%{opacity:1}98%{opacity:.75}99%{opacity:1}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes fadeSlideUp{from{opacity:1;max-height:700px}to{opacity:0;max-height:0;overflow:hidden;padding:0;margin:0}}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+
+.setup-wrap{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 14px 8px;}
+.setup-wrap.hiding{animation:fadeSlideUp .4s ease forwards;}
+.setup-wrap.gone{display:none!important;}
+
+.header{text-align:center;letter-spacing:6px;text-shadow:0 0 10px var(--g),0 0 28px var(--gg);}
+.header h1{font-size:2.9rem;line-height:1;animation:flicker 6s infinite;}
+.header .sub{font-size:.9rem;color:var(--gd);letter-spacing:4px;}
+
+.lang-bar{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;width:100%;}
+.lb{background:transparent;border:1px solid var(--gb);color:var(--gd);font-family:'VT323',monospace;
+  font-size:.95rem;letter-spacing:1px;padding:2px 9px;cursor:pointer;border-radius:2px;
+  transition:all .15s;-webkit-tap-highlight-color:transparent;}
+.lb.active,.lb:hover{border-color:var(--g);color:var(--g);text-shadow:0 0 6px var(--gg);}
+
+.stats-bar{display:flex;justify-content:space-between;width:100%;font-size:1.2rem;letter-spacing:2px;
+  padding:3px 8px;border-top:1px solid var(--gb);border-bottom:1px solid var(--gb);}
+.sl{color:var(--gd);font-size:.8rem;}.sv{color:var(--g);text-shadow:0 0 7px var(--gg);}
+
+.cust{width:100%;border:1px solid var(--gb);padding:7px 12px 9px;}
+.cust-title{font-size:.9rem;letter-spacing:3px;color:var(--gd);text-align:center;margin-bottom:7px;}
+.photo-row{display:flex;gap:6px;align-items:flex-start;justify-content:space-around;}
+.photo-slot{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+.slot-lbl{font-size:.75rem;color:var(--gd);letter-spacing:2px;text-align:center;}
+.ppw{position:relative;width:58px;height:58px;cursor:pointer;border-radius:50%;
+  box-shadow:0 0 0 2px var(--gb);transition:box-shadow .2s;}
+.ppw:hover{box-shadow:0 0 0 2px var(--g),0 0 10px var(--gg);}
+.ppw.hp{box-shadow:0 0 0 2px var(--g),0 0 8px var(--gg);}
+.pp{width:58px;height:58px;border-radius:50%;object-fit:cover;display:block;background:#010901;}
+.ai{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.7rem;color:var(--gd);}
+.ppw.hp .ai{display:none;}
+.pname{font-size:.68rem;color:var(--g);letter-spacing:1px;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;min-height:.85em;}
+.clr{font-size:.68rem;color:var(--red);letter-spacing:1px;background:none;border:none;cursor:pointer;font-family:'VT323',monospace;display:none;padding:0;}
+.ppw.hp~.clr{display:block;}
+input[type=file]{display:none;}
+.vs-lbl{font-size:1.4rem;color:var(--gd);letter-spacing:2px;padding-top:14px;}
+
+.mode-bar{display:flex;gap:6px;width:100%;justify-content:center;}
+.mb{flex:1;max-width:130px;background:transparent;border:1px solid var(--gb);color:var(--gd);
+  font-family:'VT323',monospace;font-size:.9rem;letter-spacing:2px;padding:5px 4px;
+  cursor:pointer;text-align:center;transition:all .15s;-webkit-tap-highlight-color:transparent;}
+.mb.active,.mb:hover{border-color:var(--g);color:var(--g);text-shadow:0 0 6px var(--gg);}
+
+/* ── ONLINE PANEL ── */
+.mp-panel{width:100%;border:1px solid var(--gb);padding:10px 14px 12px;
+  display:flex;flex-direction:column;align-items:center;gap:9px;
+  animation:slideIn .3s ease;}
+.mp-panel.hidden{display:none!important;}
+.mp-title{font-size:.9rem;letter-spacing:3px;color:var(--gd);text-align:center;}
+
+.role-row{display:flex;gap:8px;justify-content:center;width:100%;}
+.role-btn{flex:1;max-width:170px;background:transparent;border:1px solid var(--gb);color:var(--gd);
+  font-family:'VT323',monospace;font-size:.9rem;letter-spacing:2px;padding:4px 8px;
+  cursor:pointer;border-radius:2px;transition:all .15s;text-align:center;
+  -webkit-tap-highlight-color:transparent;}
+.role-btn.active{border-color:var(--g);color:var(--g);}
+.role-btn.food-role.active{border-color:var(--red);color:var(--red);}
+
+/* Status badge */
+.status-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:1rem;letter-spacing:2px;padding:3px 10px;
+  border:1px solid var(--gb);border-radius:2px;
+}
+.status-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--gd);}
+.status-badge.connecting .dot{background:var(--amb);animation:pulse 1s infinite;}
+.status-badge.connected .dot{background:var(--g);box-shadow:0 0 6px var(--g);}
+.status-badge.error .dot{background:var(--red);}
+.status-badge.connecting{border-color:rgba(255,183,0,.3);color:var(--amb);}
+.status-badge.connected{border-color:var(--gb);color:var(--g);}
+.status-badge.error{border-color:rgba(255,34,68,.3);color:var(--red);}
+
+/* QR area */
+.qr-section{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;}
+#qrCanvas{border-radius:4px;background:#fff;display:block;}
+.qr-hint{font-size:.7rem;color:var(--gd);letter-spacing:1px;text-align:center;max-width:260px;line-height:1.4;}
+.peer-id-row{display:flex;align-items:center;gap:6px;width:100%;max-width:300px;}
+.peer-id-display{
+  flex:1;background:rgba(0,255,65,.04);border:1px solid var(--gb);
+  color:var(--gd);font-size:.75rem;letter-spacing:1px;padding:4px 8px;
+  word-break:break-all;text-align:center;line-height:1.3;
+  font-family:'VT323',monospace;
+}
+.copy-btn{background:transparent;border:1px solid var(--gb);color:var(--gd);
+  font-family:'VT323',monospace;font-size:.85rem;letter-spacing:1px;padding:4px 8px;
+  cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;
+  transition:all .15s;}
+.copy-btn:hover,.copy-btn:active{border-color:var(--g);color:var(--g);}
+
+/* Guest connect */
+.guest-section{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;}
+.connect-row{display:flex;gap:6px;align-items:stretch;width:100%;max-width:300px;}
+.connect-row input{flex:1;background:rgba(0,255,65,.04);border:1px solid var(--gb);color:var(--g);
+  font-family:'VT323',monospace;font-size:1.1rem;letter-spacing:2px;padding:5px 8px;outline:none;
+  -webkit-appearance:none;}
+.connect-row input::placeholder{color:var(--gd);}
+.connect-row input:focus{border-color:var(--g);}
+
+/* URL warning */
+.url-warn{
+  width:100%;background:rgba(255,183,0,.07);border:1px solid rgba(255,183,0,.3);
+  padding:7px 10px;font-size:.75rem;color:var(--amb);letter-spacing:1px;
+  line-height:1.5;text-align:center;
+}
+
+/* Compact game stats */
+.game-stats{display:none;justify-content:space-between;width:100%;max-width:420px;
+  font-size:1.1rem;letter-spacing:2px;padding:3px 10px;border-bottom:1px solid var(--gb);}
+.game-stats.vis{display:flex;}
+
+.game-area{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%;max-width:420px;padding:0 0 14px;}
+.cwrap{position:relative;border:2px solid var(--gd);
+  box-shadow:0 0 16px var(--gg),inset 0 0 14px rgba(0,255,65,0.03);background:#010901;}
+canvas{display:block;image-rendering:pixelated;}
+
+.ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(1,9,1,.91);gap:7px;text-align:center;padding:14px;z-index:10;}
+.ov.hidden{display:none;}
+.ov h2{font-size:2.3rem;letter-spacing:4px;text-shadow:0 0 14px var(--g);animation:flicker 4s infinite;}
+.ov .sd{font-size:1.8rem;color:var(--amb);text-shadow:0 0 12px rgba(255,183,0,.5);letter-spacing:3px;}
+.ov p{font-size:1rem;color:var(--gd);letter-spacing:2px;line-height:1.5;}
+.ov .bl{animation:blink 1.1s step-end infinite;font-size:1.1rem;color:var(--g);letter-spacing:3px;}
+.ov-photos{display:flex;gap:12px;align-items:center;justify-content:center;}
+.oi{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.oi img{width:42px;height:42px;border-radius:50%;border:2px solid var(--g);object-fit:cover;box-shadow:0 0 7px var(--gg);}
+.oi span{font-size:.75rem;color:var(--gd);letter-spacing:1px;}
+.ov-vs{font-size:1rem;color:var(--amb);padding-bottom:3px;}
+
+.btn{background:transparent;border:2px solid var(--g);color:var(--g);font-family:'VT323',monospace;
+  font-size:1.35rem;letter-spacing:4px;padding:6px 22px;cursor:pointer;
+  text-shadow:0 0 7px var(--gg);box-shadow:0 0 7px var(--gg);
+  transition:all .15s;margin-top:2px;-webkit-tap-highlight-color:transparent;}
+.btn:hover,.btn:active{background:var(--g);color:var(--bg);box-shadow:0 0 18px var(--g);}
+.btn:disabled{opacity:.4;pointer-events:none;}
+
+.controls-row{display:flex;gap:14px;justify-content:center;width:100%;max-width:420px;padding:0 4px;}
+.dpw{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;}
+.dp-lbl{font-size:.72rem;letter-spacing:1px;padding:1px 7px;border-radius:2px;}
+.dp-lbl.sc{color:var(--g);border:1px solid var(--gb);}
+.dp-lbl.fc{color:var(--red);border:1px solid rgba(255,34,68,.3);}
+.dpad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:3px;}
+.db{background:rgba(0,255,65,.05);border:1px solid var(--gd);color:var(--g);font-size:1.2rem;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:4px;
+  transition:background .1s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.db:active{background:rgba(0,255,65,.28);box-shadow:0 0 7px var(--gg);}
+.db.center{opacity:0;pointer-events:none;}
+.db.fd{border-color:rgba(255,34,68,.4);color:var(--red);}
+.db.fd:active{background:rgba(255,34,68,.18);}
+
+.spd{font-size:.85rem;color:var(--gd);letter-spacing:2px;text-align:center;}
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP ══ -->
+<div class="setup-wrap" id="setupWrap">
+  <div class="header">
+    <h1>SNAKE</h1>
+    <div class="sub" id="subTitle">▸ RETRO ARCADE ◂</div>
+  </div>
+
+  <div class="lang-bar">
+    <button class="lb active" data-lang="tr" onclick="setLang('tr')">TR</button>
+    <button class="lb" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lb" data-lang="de" onclick="setLang('de')">DE</button>
+    <button class="lb" data-lang="ru" onclick="setLang('ru')">RU</button>
+    <button class="lb" data-lang="es" onclick="setLang('es')">ES</button>
+  </div>
+
+  <div class="mode-bar">
+    <button class="mb active" id="mode1p" onclick="setMode(1)" data-i="mode1p">TEK KİŞİLİK</button>
+    <button class="mb" id="mode2p" onclick="setMode(2)" data-i="mode2p">2 KİŞİLİK</button>
+    <button class="mb" id="modeOnline" onclick="setMode(3)" data-i="modeOnline">ONLİNE</button>
+  </div>
+
+  <div class="stats-bar">
+    <div><span class="sl" data-i="lblScore">SKOR </span><span class="sv" id="score">0000</span></div>
+    <div><span class="sl" data-i="lblBest">EN YÜKSEK </span><span class="sv" id="highscore">0000</span></div>
+    <div><span class="sl" data-i="lblLevel">SEVİYE </span><span class="sv" id="level">01</span></div>
+  </div>
+
+  <div class="cust">
+    <div class="cust-title" data-i="customTitle">▸ KİŞİSELLEŞTİR ◂</div>
+    <div class="photo-row">
+      <div class="photo-slot">
+        <div class="slot-lbl" data-i="lblHead">YILAN BAŞI</div>
+        <div class="ppw" id="headWrap" onclick="document.getElementById('headInput').click()">
+          <img class="pp" id="headPreview" src="" alt=""><div class="ai">＋</div>
+        </div>
+        <div class="pname" id="headName"></div>
+        <button class="clr" onclick="event.stopPropagation();clearPhoto('head')" data-i="btnClear">✕ SİL</button>
+        <input type="file" id="headInput" accept="image/*" onchange="loadPhoto(event,'head')">
+      </div>
+      <div class="vs-lbl">VS</div>
+      <div class="photo-slot">
+        <div class="slot-lbl" data-i="lblFood">YEM</div>
+        <div class="ppw" id="foodWrap" onclick="document.getElementById('foodInput').click()">
+          <img class="pp" id="foodPreview" src="" alt=""><div class="ai">＋</div>
+        </div>
+        <div class="pname" id="foodName"></div>
+        <button class="clr" onclick="event.stopPropagation();clearPhoto('food')" data-i="btnClear">✕ SİL</button>
+        <input type="file" id="foodInput" accept="image/*" onchange="loadPhoto(event,'food')">
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ONLINE PANEL ══ -->
+  <div class="mp-panel hidden" id="mpPanel">
+    <div class="mp-title" data-i="mpTitle">▸ ONLİNE ◂</div>
+
+    <!-- URL warning — shown when not on a real URL -->
+    <div class="url-warn hidden" id="urlWarn" data-i="urlWarn">
+      ⚠ Bu oyun bir dosya olarak açılmış. Online mod için internet adresinden açılması gerekiyor.
+    </div>
+
+    <div class="role-row">
+      <button class="role-btn active" id="roleHost" onclick="setRole('host')" data-i="roleHost">HOST — Yılan</button>
+      <button class="role-btn food-role" id="roleGuest" onclick="setRole('guest')" data-i="roleGuest">MİSAFİR — Yem</button>
+    </div>
+
+    <!-- HOST section -->
+    <div id="hostSection" style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;">
+      <div class="status-badge connecting" id="hostStatus">
+        <span class="dot"></span><span id="hostStatusTxt" data-i="initializing">Başlatılıyor…</span>
+      </div>
+      <div class="qr-section" id="qrSection" style="display:none">
+        <canvas id="qrCanvas" width="120" height="120"></canvas>
+        <div class="qr-hint" data-i="qrHint">QR kodu tara veya ID'yi kopyala → Misafire gönder</div>
+        <div class="peer-id-row">
+          <div class="peer-id-display" id="peerIdDisplay">—</div>
+          <button class="copy-btn" onclick="copyPeerId()" data-i="btnCopy">KOPYALA</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GUEST section -->
+    <div id="guestSection" style="display:none;flex-direction:column;align-items:center;gap:8px;width:100%;">
+      <div class="status-badge" id="guestStatus">
+        <span class="dot"></span><span id="guestStatusTxt" data-i="enterHostId">Host ID gir</span>
+      </div>
+      <div class="connect-row">
+        <input id="hostIdInput" type="text" placeholder="ID yapıştır…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button class="btn" style="font-size:1rem;padding:5px 12px;margin:0;" onclick="connectToHost()" data-i="btnConnect">BAĞLan</button>
+      </div>
+      <div style="font-size:.72rem;color:var(--gd);letter-spacing:1px;" data-i="guestHint">Host'un ID'sini gir veya QR linki aç</div>
+    </div>
+
+  </div><!-- /mp-panel -->
+
+</div><!-- /setup-wrap -->
+
+<!-- Compact stats -->
+<div class="game-stats" id="gameStats">
+  <div><span class="sl" data-i="lblScore">SKOR </span><span class="sv" id="scoreG">0000</span></div>
+  <div><span class="sl" data-i="lblBest">EN YÜKSEK </span><span class="sv" id="highscoreG">0000</span></div>
+  <div><span class="sl" data-i="lblLevel">SEVİYE </span><span class="sv" id="levelG">01</span></div>
+</div>
+
+<!-- ══ GAME AREA ══ -->
+<div class="game-area" id="gameArea">
+  <div class="cwrap" id="canvasWrap">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Start overlay -->
+    <div class="ov" id="startScreen">
+      <h2 data-i="titleSnake">▸ SNAKE ◂</h2>
+      <div class="ov-photos" id="startPhotos" style="display:none">
+        <div class="oi" id="startHeadItem"><img id="startHeadImg" src="" alt=""><span data-i="youLabel">SEN</span></div>
+        <span class="ov-vs" data-i="catchesLabel">yakalıyor</span>
+        <div class="oi" id="startFoodItem"><img id="startFoodImg" src="" alt=""><span data-i="themLabel">ONU</span></div>
+      </div>
+      <p id="startHint" data-i="startHint">Fotoğraf ekle, kişiselleştir!</p>
+      <div id="onlineReadyMsg" style="display:none;font-size:.95rem;color:var(--g);letter-spacing:2px;" data-i="peerConnected">✓ Bağlantı hazır!</div>
+      <div id="onlineWaitMsg" style="display:none;font-size:.9rem;color:var(--amb);animation:pulse 1.4s infinite;letter-spacing:2px;" data-i="waitGuest">Misafir bekleniyor…</div>
+      <button class="btn" id="startBtn" data-i="btnStart">[ BAŞLAT ]</button>
+      <p class="bl" data-i="controlHint">↑↓←→ veya kaydır</p>
+    </div>
+
+    <!-- Game over -->
+    <div class="ov hidden" id="gameOverScreen">
+      <h2 style="color:var(--red);text-shadow:0 0 14px #ff2244;" data-i="gameOver">GAME OVER</h2>
+      <div class="sd" id="finalScore"></div>
+      <div id="newRecord" style="color:var(--amb);font-size:1.1rem;letter-spacing:2px;display:none;" data-i="newRecord">★ YENİ REKOR! ★</div>
+      <button class="btn" id="restartBtn" data-i="btnRestart">[ TEKRAR ]</button>
+    </div>
+  </div>
+
+  <!-- D-pads -->
+  <div class="controls-row" id="controlsRow">
+    <div class="dpw" id="snakeDpw">
+      <div class="dp-lbl sc" data-i="snakePlayer">YILAN</div>
+      <div class="dpad">
+        <div></div><div class="db" data-role="snake" data-dir="UP">▲</div><div></div>
+        <div class="db" data-role="snake" data-dir="LEFT">◀</div><div class="db center"></div><div class="db" data-role="snake" data-dir="RIGHT">▶</div>
+        <div></div><div class="db" data-role="snake" data-dir="DOWN">▼</div><div></div>
+      </div>
+    </div>
+    <div class="dpw" id="foodDpw" style="display:none">
+      <div class="dp-lbl fc" data-i="foodPlayer">YEM</div>
+      <div class="dpad">
+        <div></div><div class="db fd" data-role="food" data-dir="UP">▲</div><div></div>
+        <div class="db fd" data-role="food" data-dir="LEFT">◀</div><div class="db center"></div><div class="db fd" data-role="food" data-dir="RIGHT">▶</div>
+        <div></div><div class="db fd" data-role="food" data-dir="DOWN">▼</div><div></div>
+      </div>
+    </div>
+  </div>
+  <div class="spd" id="speedInfo">—</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script>
+// ════════════════════════════════════════
+// I18N
+// ════════════════════════════════════════
+const I18N={
+  tr:{titleSnake:'▸ SNAKE ◂',subTitle:'▸ RETRO ARCADE ◂',
+    lblScore:'SKOR ',lblBest:'EN YÜKSEK ',lblLevel:'SEVİYE ',
+    customTitle:'▸ KİŞİSELLEŞTİR ◂',lblHead:'YILAN BAŞI',lblFood:'YEM',btnClear:'✕ SİL',
+    mode1p:'TEK KİŞİ',mode2p:'2 KİŞİ',modeOnline:'ONLİNE',
+    youLabel:'SEN',catchesLabel:'yakalıyor',themLabel:'ONU',
+    startHint:'Fotoğraf ekle, kişiselleştir!',btnStart:'[ BAŞLAT ]',controlHint:'↑↓←→ veya kaydır',
+    gameOver:'GAME OVER',newRecord:'★ YENİ REKOR! ★',btnRestart:'[ TEKRAR ]',
+    snakePlayer:'YILAN',foodPlayer:'YEM',
+    speedNames:['YAVAŞ','NORMAL','HIZLI','ÇAKAL','TURBO','ULTRA','UÇAK','MAX'],speedLabel:'HIZ: ',scoreTxt:'SKOR: ',
+    mpTitle:'▸ ONLİNE ◂',
+    roleHost:'HOST — Yılan',roleGuest:'MİSAFİR — Yem',
+    qrHint:'QR kodu tara veya ID\'yi kopyala → Misafire gönder',
+    initializing:'Başlatılıyor…',waitPeer:'Misafir bekleniyor…',
+    connected:'✓ BAĞLANDI!',connecting:'Bağlanılıyor…',
+    btnConnect:'BAĞLAN',btnCopy:'KOPYALA',copied:'KOPYALANDI ✓',
+    enterHostId:'Host ID\'sini gir',guestHint:'Host ID\'sini gir veya QR linkini aç',
+    peerConnected:'✓ Bağlantı hazır!',waitGuest:'Misafir bekleniyor…',
+    disconnected:'Bağlantı kesildi',urlWarn:'⚠ Bu dosya yerel olarak açılmış. Online mod için internet adresinden açılması gerekiyor.',
+  },
+  en:{titleSnake:'▸ SNAKE ◂',subTitle:'▸ RETRO ARCADE ◂',
+    lblScore:'SCORE ',lblBest:'BEST ',lblLevel:'LEVEL ',
+    customTitle:'▸ CUSTOMIZE ◂',lblHead:'SNAKE HEAD',lblFood:'FOOD',btnClear:'✕ CLEAR',
+    mode1p:'1 PLAYER',mode2p:'2 PLAYERS',modeOnline:'ONLINE',
+    youLabel:'YOU',catchesLabel:'chases',themLabel:'THEM',
+    startHint:'Add photos to personalize!',btnStart:'[ START ]',controlHint:'Arrows or swipe',
+    gameOver:'GAME OVER',newRecord:'★ NEW RECORD! ★',btnRestart:'[ RETRY ]',
+    snakePlayer:'SNAKE',foodPlayer:'FOOD',
+    speedNames:['SLOW','NORMAL','FAST','RAPID','TURBO','ULTRA','SONIC','MAX'],speedLabel:'SPEED: ',scoreTxt:'SCORE: ',
+    mpTitle:'▸ ONLINE ◂',
+    roleHost:'HOST — Snake',roleGuest:'GUEST — Food',
+    qrHint:'Scan QR or copy ID → send to guest',
+    initializing:'Initializing…',waitPeer:'Waiting for guest…',
+    connected:'✓ CONNECTED!',connecting:'Connecting…',
+    btnConnect:'CONNECT',btnCopy:'COPY',copied:'COPIED ✓',
+    enterHostId:'Enter host ID',guestHint:'Paste host ID or open QR link',
+    peerConnected:'✓ Connection ready!',waitGuest:'Waiting for guest…',
+    disconnected:'Disconnected',urlWarn:'⚠ File opened locally. Online mode needs a web URL.',
+  },
+  de:{titleSnake:'▸ SNAKE ◂',subTitle:'▸ RETRO ARCADE ◂',
+    lblScore:'PUNKTE ',lblBest:'REKORD ',lblLevel:'LEVEL ',
+    customTitle:'▸ ANPASSEN ◂',lblHead:'SCHLANGENKOPF',lblFood:'FUTTER',btnClear:'✕ LÖSCHEN',
+    mode1p:'1 SPIELER',mode2p:'2 SPIELER',modeOnline:'ONLINE',
+    youLabel:'DU',catchesLabel:'jagt',themLabel:'IHN',
+    startHint:'Fotos hinzufügen!',btnStart:'[ START ]',controlHint:'Pfeile oder wischen',
+    gameOver:'GAME OVER',newRecord:'★ NEUER REKORD! ★',btnRestart:'[ NOCHMAL ]',
+    snakePlayer:'SCHLANGE',foodPlayer:'FUTTER',
+    speedNames:['LANGSAM','NORMAL','SCHNELL','FLINK','TURBO','ULTRA','SONIC','MAX'],speedLabel:'TEMPO: ',scoreTxt:'PUNKTE: ',
+    mpTitle:'▸ ONLINE ◂',
+    roleHost:'HOST — Schlange',roleGuest:'GAST — Futter',
+    qrHint:'QR scannen oder ID kopieren',
+    initializing:'Initialisierung…',waitPeer:'Warte auf Gast…',
+    connected:'✓ VERBUNDEN!',connecting:'Verbinde…',
+    btnConnect:'VERB.',btnCopy:'KOPIEREN',copied:'KOPIERT ✓',
+    enterHostId:'Host-ID eingeben',guestHint:'Host-ID einfügen oder QR-Link öffnen',
+    peerConnected:'✓ Bereit!',waitGuest:'Warte auf Gast…',
+    disconnected:'Verbindung getrennt',urlWarn:'⚠ Datei lokal geöffnet. Online-Modus braucht eine Web-URL.',
+  },
+  ru:{titleSnake:'▸ ЗМЕЙКА ◂',subTitle:'▸ РЕТРО АРКАДА ◂',
+    lblScore:'СЧЁТ ',lblBest:'РЕКОРД ',lblLevel:'УРОВЕНЬ ',
+    customTitle:'▸ НАСТРОЙКА ◂',lblHead:'ГОЛОВА',lblFood:'ЕДА',btnClear:'✕ УДАЛ.',
+    mode1p:'1 ИГРОК',mode2p:'2 ИГРОКА',modeOnline:'ОНЛАЙН',
+    youLabel:'ТЫ',catchesLabel:'догоняет',themLabel:'ЕГО',
+    startHint:'Добавь фото!',btnStart:'[ СТАРТ ]',controlHint:'Стрелки или свайп',
+    gameOver:'GAME OVER',newRecord:'★ НОВЫЙ РЕКОРД! ★',btnRestart:'[ ЕЩЁ РАЗ ]',
+    snakePlayer:'ЗМЕЯ',foodPlayer:'ЕДА',
+    speedNames:['МЕДЛЕННО','НОРМАЛЬНО','БЫСТРО','ШУСТРО','ТУРБО','УЛЬТРА','СОНИК','МАКС'],speedLabel:'СКОРОСТЬ: ',scoreTxt:'СЧЁТ: ',
+    mpTitle:'▸ ОНЛАЙН ◂',
+    roleHost:'ХОСТ — Змея',roleGuest:'ГОСТЬ — Еда',
+    qrHint:'Скан QR или скопируй ID',
+    initializing:'Инициализация…',waitPeer:'Ожидание гостя…',
+    connected:'✓ ПОДКЛЮЧЕНО!',connecting:'Подключение…',
+    btnConnect:'ПОДКЛ.',btnCopy:'КОПИРОВАТЬ',copied:'СКОПИРОВАНО ✓',
+    enterHostId:'Введи ID хоста',guestHint:'Вставь ID хоста или открой QR-ссылку',
+    peerConnected:'✓ Готово!',waitGuest:'Ожидание гостя…',
+    disconnected:'Соединение потеряно',urlWarn:'⚠ Файл открыт локально. Онлайн-режим требует веб-URL.',
+  },
+  es:{titleSnake:'▸ SERPIENTE ◂',subTitle:'▸ ARCADE RETRO ◂',
+    lblScore:'PUNTOS ',lblBest:'RÉCORD ',lblLevel:'NIVEL ',
+    customTitle:'▸ PERSONALIZAR ◂',lblHead:'CABEZA',lblFood:'COMIDA',btnClear:'✕ BORRAR',
+    mode1p:'1 JUGADOR',mode2p:'2 JUGADORES',modeOnline:'EN LÍNEA',
+    youLabel:'TÚ',catchesLabel:'persigue a',themLabel:'ÉL',
+    startHint:'¡Añade fotos!',btnStart:'[ JUGAR ]',controlHint:'Flechas o deslizar',
+    gameOver:'FIN DEL JUEGO',newRecord:'★ ¡NUEVO RÉCORD! ★',btnRestart:'[ REINTENTAR ]',
+    snakePlayer:'SERPIENTE',foodPlayer:'COMIDA',
+    speedNames:['LENTO','NORMAL','RÁPIDO','VELOZ','TURBO','ULTRA','SÓNICO','MÁX'],speedLabel:'VEL: ',scoreTxt:'PUNTOS: ',
+    mpTitle:'▸ EN LÍNEA ◂',
+    roleHost:'ANFITRIÓN — Serpiente',roleGuest:'INVITADO — Comida',
+    qrHint:'Escanea QR o copia el ID',
+    initializing:'Inicializando…',waitPeer:'Esperando invitado…',
+    connected:'✓ ¡CONECTADO!',connecting:'Conectando…',
+    btnConnect:'UNIRSE',btnCopy:'COPIAR',copied:'¡COPIADO! ✓',
+    enterHostId:'Ingresa ID del anfitrión',guestHint:'Pega ID del anfitrión o abre el QR',
+    peerConnected:'✓ ¡Listo!',waitGuest:'Esperando invitado…',
+    disconnected:'Desconectado',urlWarn:'⚠ Archivo abierto localmente. El modo en línea necesita una URL web.',
+  }
+};
+
+let lang=localStorage.getItem('snakeLang')||'tr';
+let T=I18N[lang];
+function setLang(l){lang=l;T=I18N[l];localStorage.setItem('snakeLang',l);
+  document.querySelectorAll('.lb').forEach(b=>b.classList.toggle('active',b.dataset.lang===l));
+  applyI18n();}
+function applyI18n(){
+  document.querySelectorAll('[data-i]').forEach(el=>{const k=el.dataset.i;if(T[k]!==undefined)el.textContent=T[k];});
+  document.getElementById('subTitle').textContent=T.subTitle;
+  updateSpeedDisplay();
+}
+
+// ════════════════════════════════════════
+// URL CHECK — warn if running as file://
+// ════════════════════════════════════════
+function checkUrl(){
+  const proto=window.location.protocol;
+  const isLocal=proto==='file:'||window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1';
+  document.getElementById('urlWarn').classList.toggle('hidden',!isLocal);
+  return !isLocal;
+}
+
+// ════════════════════════════════════════
+// QR CODE — pure canvas, no CDN needed
+// ════════════════════════════════════════
+// Minimal QR encoder using qrcode-generator
+function drawQR(text, canvasEl){
+  // We'll use a simple approach: encode as a data URI via a temp Image
+  // Actually use the already-loaded PeerJS CDN page approach:
+  // Build a simple visual QR placeholder until lib loads, then replace
+  // We use qrcode lib approach inline
+  try{
+    // Use qrcodejs if available
+    if(typeof QRCode!=='undefined'){
+      const div=document.createElement('div');
+      new QRCode(div,{text,width:116,height:116,colorDark:'#000000',colorLight:'#ffffff'});
+      const img=div.querySelector('img')||div.querySelector('canvas');
+      if(img){
+        const ctx2=canvasEl.getContext('2d');
+        canvasEl.width=120;canvasEl.height=120;
+        // If QRCode made a canvas
+        if(img.tagName==='CANVAS'){
+          ctx2.drawImage(img,2,2,116,116);
+        } else {
+          img.onload=()=>ctx2.drawImage(img,2,2,116,116);
+        }
+      }
+    }
+  }catch(e){
+    // Fallback: show text
+    const ctx2=canvasEl.getContext('2d');
+    ctx2.fillStyle='#fff';ctx2.fillRect(0,0,120,120);
+    ctx2.fillStyle='#000';ctx2.font='9px monospace';ctx2.textAlign='center';
+    ctx2.fillText('ID kopyala →',60,60);
+  }
+}
+
+// ════════════════════════════════════════
+// PEER / WEBRTC
+// ════════════════════════════════════════
+let peer=null,conn=null,peerReady=false;
+let onlineRole='host';
+let guestConnected=false;
+
+// Multiple STUN/TURN servers for reliability
+const PEER_CFG={
+  config:{
+    iceServers:[
+      {urls:'stun:stun.l.google.com:19302'},
+      {urls:'stun:stun1.l.google.com:19302'},
+      {urls:'stun:stun.cloudflare.com:3478'},
+    ]
+  },
+  debug:1
+};
+
+function setHostStatus(cls,txt){
+  const badge=document.getElementById('hostStatus');
+  badge.className='status-badge '+cls;
+  document.getElementById('hostStatusTxt').textContent=txt;
+}
+function setGuestStatus(cls,txt){
+  const badge=document.getElementById('guestStatus');
+  badge.className='status-badge '+cls;
+  document.getElementById('guestStatusTxt').textContent=txt;
+}
+
+function initPeer(){
+  if(peer){try{peer.destroy();}catch(_){}}
+  peerReady=false;guestConnected=false;
+  setHostStatus('connecting',T.initializing);
+
+  peer=new Peer(PEER_CFG);
+
+  peer.on('open',id=>{
+    peerReady=true;
+    document.getElementById('peerIdDisplay').textContent=id;
+    document.getElementById('qrSection').style.display='flex';
+    document.getElementById('qrSection').style.flexDirection='column';
+    document.getElementById('qrSection').style.alignItems='center';
+    document.getElementById('qrSection').style.gap='6px';
+    setHostStatus('connecting',T.waitPeer);
+    document.getElementById('onlineWaitMsg').style.display='block';
+    document.getElementById('onlineReadyMsg').style.display='none';
+
+    // Build QR pointing to this page + ?join=<id>
+    const pageUrl=window.location.href.split('?')[0];
+    const joinUrl=pageUrl+'?join='+encodeURIComponent(id);
+    drawQR(joinUrl,document.getElementById('qrCanvas'));
+  });
+
+  peer.on('connection',c=>{
+    conn=c;guestConnected=true;
+    setupConn('host');
+    setHostStatus('connected',T.connected);
+    document.getElementById('onlineWaitMsg').style.display='none';
+    document.getElementById('onlineReadyMsg').style.display='block';
+  });
+
+  peer.on('error',err=>{
+    setHostStatus('error','Error: '+err.type);
+    console.warn('PeerJS error:',err);
+  });
+  peer.on('disconnected',()=>{
+    setHostStatus('error',T.disconnected);
+    setTimeout(()=>{if(peer)peer.reconnect();},2000);
+  });
+}
+
+function connectToHost(){
+  const id=document.getElementById('hostIdInput').value.trim();
+  if(!id)return;
+  if(!peer||peer.destroyed){
+    peer=new Peer(PEER_CFG);
+    peer.on('open',()=>doConnect(id));
+    peer.on('error',err=>{setGuestStatus('error','Error: '+err.type);});
+  } else {
+    doConnect(id);
+  }
+}
+
+function doConnect(hostId){
+  setGuestStatus('connecting',T.connecting);
+  const c=peer.connect(hostId,{reliable:true,serialization:'json'});
+  c.on('open',()=>{
+    conn=c;
+    setupConn('guest');
+    setGuestStatus('connected',T.connected);
+    document.getElementById('onlineWaitMsg').style.display='none';
+    document.getElementById('onlineReadyMsg').style.display='block';
+    // Say hello (triggers host to send its photos back)
+    sendToHost({type:'hello'});
+    // Guest sends its own photos immediately
+    if(photos.food) sendToHost({type:'myPhoto',role:'food',src:photos.food.src});
+    if(photos.head) sendToHost({type:'myPhoto',role:'head',src:photos.head.src});
+  });
+  c.on('error',e=>{setGuestStatus('error',T.disconnected);console.warn(e);});
+}
+
+function setupConn(role){
+  conn.on('data',msg=>onRemoteMsg(msg,role));
+  conn.on('close',()=>{
+    conn=null;guestConnected=false;
+    if(role==='host')setHostStatus('error',T.disconnected);
+    else setGuestStatus('error',T.disconnected);
+    document.getElementById('onlineWaitMsg').style.display='none';
+    document.getElementById('onlineReadyMsg').style.display='none';
+  });
+}
+
+function sendToGuest(msg){if(conn&&conn.open)try{conn.send(msg);}catch(_){}}
+function sendToHost(msg){if(conn&&conn.open)try{conn.send(msg);}catch(_){}}
+
+function onRemoteMsg(msg,myRole){
+  if(!msg)return;
+  switch(msg.type){
+    case 'hello':
+      // Guest said hello — host sends ALL its photos
+      sendToGuest({type:'photos',
+        head: photos.head ? photos.head.src : null,
+        food: photos.food ? photos.food.src : null
+      });
+      break;
+    case 'myPhoto':
+      // A side is sharing its specific role photo
+      // Apply it locally
+      if(msg.src){
+        const i=new Image();
+        i.onload=()=>{ photos[msg.role]=i; syncStart(); };
+        i.src=msg.src;
+      }
+      // If host received guest's photo, no need to forward (guest already has it)
+      // If guest received host's photo via myPhoto, same
+      break;
+    case 'photos':
+      // Legacy full photo share from host
+      if(msg.head){const i=new Image();i.onload=()=>{photos.head=i;syncStart();};i.src=msg.head;}
+      if(msg.food){const i=new Image();i.onload=()=>{photos.food=i;syncStart();};i.src=msg.food;}
+      break;
+    case 'start':
+      if(myRole==='guest') startGame(true);
+      break;
+    case 'foodDir':
+      if(myRole==='host') nextFoodDir={...msg.dir};
+      break;
+    case 'frame':
+      if(myRole==='guest'){
+        snake=msg.snake;food=msg.food;score=msg.score;level=msg.level;
+        updateUI();draw();
+      }
+      break;
+    case 'over':
+      if(myRole==='guest') endGame(true);
+      break;
+  }
+}
+
+function copyPeerId(){
+  const id=document.getElementById('peerIdDisplay').textContent;
+  if(!id||id==='—')return;
+  navigator.clipboard.writeText(id).then(()=>{
+    const btn=document.querySelector('.copy-btn');
+    const orig=btn.textContent;btn.textContent=T.copied;
+    setTimeout(()=>btn.textContent=orig,2000);
+  }).catch(()=>{
+    // fallback
+    const ta=document.createElement('textarea');ta.value=id;
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+}
+
+// Auto-join via URL param
+function checkAutoJoin(){
+  const p=new URLSearchParams(window.location.search);
+  const joinId=p.get('join');
+  if(!joinId)return;
+  setMode(3);setRole('guest');
+  document.getElementById('hostIdInput').value=decodeURIComponent(joinId);
+  // Init peer then connect
+  peer=new Peer(PEER_CFG);
+  peer.on('open',()=>{
+    setGuestStatus('connecting',T.connecting);
+    setTimeout(()=>doConnect(decodeURIComponent(joinId)),400);
+  });
+  peer.on('error',e=>{setGuestStatus('error','Error: '+e.type);console.warn(e);});
+}
+
+// ════════════════════════════════════════
+// MODE & ROLE
+// ════════════════════════════════════════
+let gameMode=1;
+
+function setMode(m){
+  gameMode=m;
+  document.getElementById('mode1p').classList.toggle('active',m===1);
+  document.getElementById('mode2p').classList.toggle('active',m===2);
+  document.getElementById('modeOnline').classList.toggle('active',m===3);
+  document.getElementById('mpPanel').classList.toggle('hidden',m!==3);
+  document.getElementById('foodDpw').style.display=m===2?'flex':'none';
+  if(m===3){
+    document.getElementById('foodDpw').style.display='none';
+    checkUrl();
+    if(onlineRole==='host'&&!peerReady) initPeer();
+  }
+}
+
+function setRole(r){
+  onlineRole=r;
+  document.getElementById('roleHost').classList.toggle('active',r==='host');
+  document.getElementById('roleGuest').classList.toggle('active',r==='guest');
+  document.getElementById('hostSection').style.display=r==='host'?'flex':'none';
+  document.getElementById('hostSection').style.flexDirection='column';
+  document.getElementById('hostSection').style.alignItems='center';
+  document.getElementById('hostSection').style.gap='8px';
+  document.getElementById('guestSection').style.display=r==='guest'?'flex':'none';
+  if(r==='host'&&!peerReady) initPeer();
+}
+
+// ════════════════════════════════════════
+// CANVAS
+// ════════════════════════════════════════
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const COLS=20,ROWS=20;
+function getCell(){return Math.floor((Math.min(window.innerWidth,420)-18)/COLS);}
+let CELL=getCell();
+function resizeCanvas(){CELL=getCell();canvas.width=COLS*CELL;canvas.height=ROWS*CELL;}
+resizeCanvas();
+window.addEventListener('resize',()=>{resizeCanvas();if(!running)draw();});
+
+// ════════════════════════════════════════
+// PHOTOS
+// ════════════════════════════════════════
+const photos={head:null,food:null};
+function loadPhoto(ev,slot){
+  const file=ev.target.files[0];if(!file)return;
+  const rd=new FileReader();
+  rd.onload=e=>{const img=new Image();img.onload=()=>{
+    photos[slot]=img;
+    document.getElementById(slot+'Preview').src=e.target.result;
+    document.getElementById(slot+'Wrap').classList.add('hp');
+    const nm=file.name;document.getElementById(slot+'Name').textContent=nm.length>12?nm.slice(0,11)+'…':nm;
+    try{localStorage.setItem('snakePhoto_'+slot,e.target.result);}catch(_){}
+    syncStart();
+    // Immediately share with peer if connected
+    if(conn&&conn.open){
+      if(onlineRole==='host') sendToGuest({type:'myPhoto',role:slot,src:e.target.result});
+      else sendToHost({type:'myPhoto',role:slot,src:e.target.result});
+    }
+  };img.src=e.target.result;};
+  rd.readAsDataURL(file);ev.target.value='';
+}
+function clearPhoto(slot){
+  photos[slot]=null;
+  document.getElementById(slot+'Preview').src='';
+  document.getElementById(slot+'Wrap').classList.remove('hp');
+  document.getElementById(slot+'Name').textContent='';
+  try{localStorage.removeItem('snakePhoto_'+slot);}catch(_){}
+  syncStart();
+}
+function restorePhotos(){
+  ['head','food'].forEach(s=>{try{
+    const d=localStorage.getItem('snakePhoto_'+s);if(!d)return;
+    const img=new Image();img.onload=()=>{photos[s]=img;
+      document.getElementById(s+'Preview').src=d;
+      document.getElementById(s+'Wrap').classList.add('hp');
+      document.getElementById(s+'Name').textContent='(kayıtlı)';
+      syncStart();};img.src=d;
+  }catch(_){}});
+}
+function syncStart(){
+  const has=photos.head||photos.food;
+  document.getElementById('startPhotos').style.display=has?'flex':'none';
+  document.getElementById('startHint').style.display=has?'none':'block';
+  if(photos.head){document.getElementById('startHeadImg').src=photos.head.src;document.getElementById('startHeadItem').style.display='flex';}
+  else document.getElementById('startHeadItem').style.display='none';
+  if(photos.food){document.getElementById('startFoodImg').src=photos.food.src;document.getElementById('startFoodItem').style.display='flex';}
+  else document.getElementById('startFoodItem').style.display='none';
+}
+
+// ════════════════════════════════════════
+// GAME STATE
+// ════════════════════════════════════════
+let snake,dir,nextDir,food,foodDir,nextFoodDir,score,highScore,level,gameLoop,running,particles;
+highScore=parseInt(localStorage.getItem('snakeHS')||'0');
+const SPEEDS=[200,165,135,110,90,75,62,52];
+
+function initGame(){
+  snake=[{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+  dir={x:1,y:0};nextDir={x:1,y:0};
+  food={x:4,y:4};foodDir={x:0,y:0};nextFoodDir={x:0,y:0};
+  score=0;level=1;particles=[];updateUI();
+}
+
+let foodStepCtr=0;
+const FOOD_DIV=2;
+
+function placeFood(){
+  let p;
+  do{p={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)};}
+  while(snake.some(s=>s.x===p.x&&s.y===p.y));
+  food=p;
+  if(gameMode===1){foodDir={x:0,y:0};nextFoodDir={x:0,y:0};}
+}
+
+// ════════════════════════════════════════
+// PARTICLES
+// ════════════════════════════════════════
+function spawnP(x,y){for(let i=0;i<14;i++){const a=Math.random()*Math.PI*2,sp=1.5+Math.random()*3;particles.push({x:x*CELL+CELL/2,y:y*CELL+CELL/2,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,size:2+Math.random()*3});}}
+function updateP(){particles=particles.filter(p=>p.life>0);particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life-=.055;p.vx*=.92;p.vy*=.92;});}
+function drawP(){particles.forEach(p=>{ctx.save();ctx.globalAlpha=p.life;ctx.fillStyle=p.life>.5?'#ffb700':'#00ff41';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=6;ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);ctx.restore();});}
+
+// ════════════════════════════════════════
+// DRAW
+// ════════════════════════════════════════
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
+function dcp(img,cx,cy,r){ctx.save();ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();ctx.drawImage(img,cx-r,cy-r,r*2,r*2);ctx.restore();}
+
+function draw(){
+  ctx.fillStyle='#010901';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle='rgba(0,60,20,0.3)';ctx.lineWidth=.5;
+  for(let i=0;i<=COLS;i++){ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,canvas.height);ctx.stroke();}
+  for(let j=0;j<=ROWS;j++){ctx.beginPath();ctx.moveTo(0,j*CELL);ctx.lineTo(canvas.width,j*CELL);ctx.stroke();}
+  if(!snake)return;
+
+  snake.forEach((seg,i)=>{
+    const ih=i===0,tf=i/snake.length,al=ih?1:.92-tf*.45;
+    ctx.save();
+    if(ih&&photos.head){
+      ctx.shadowColor='#00ff41';ctx.shadowBlur=16;
+      ctx.beginPath();ctx.arc(seg.x*CELL+CELL/2,seg.y*CELL+CELL/2,CELL/2-.5,0,Math.PI*2);
+      ctx.strokeStyle='#00ff41';ctx.lineWidth=2.5;ctx.stroke();ctx.shadowBlur=0;
+      dcp(photos.head,seg.x*CELL+CELL/2,seg.y*CELL+CELL/2,CELL/2-2);
+    } else if(ih){
+      ctx.shadowColor='#00ff41';ctx.shadowBlur=16;
+      const g=ctx.createLinearGradient(seg.x*CELL,seg.y*CELL,seg.x*CELL+CELL,seg.y*CELL+CELL);
+      g.addColorStop(0,'#00ff41');g.addColorStop(1,'#00d435');ctx.fillStyle=g;
+      rr(ctx,seg.x*CELL+1,seg.y*CELL+1,CELL-2,CELL-2,4);ctx.fill();
+      ctx.fillStyle='#020c02';ctx.globalAlpha=1;
+      const ex=dir.x===1?.65:dir.x===-1?.2:.3,ex2=dir.x===1?.65:dir.x===-1?.2:.7;
+      const ey=dir.y===1?.65:dir.y===-1?.2:.3,ey2=dir.y===1?.65:dir.y===-1?.2:.7;
+      ctx.beginPath();ctx.arc(seg.x*CELL+CELL*ex,seg.y*CELL+CELL*ey,2.5,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(seg.x*CELL+CELL*ex2,seg.y*CELL+CELL*ey2,2.5,0,Math.PI*2);ctx.fill();
+    } else {
+      const g2=ctx.createLinearGradient(seg.x*CELL,seg.y*CELL,seg.x*CELL+CELL,seg.y*CELL+CELL);
+      g2.addColorStop(0,`rgba(0,${Math.floor(200-tf*120)},${Math.floor(60-tf*40)},${al})`);
+      g2.addColorStop(1,`rgba(0,${Math.floor(160-tf*100)},${Math.floor(40-tf*30)},${al})`);
+      ctx.fillStyle=g2;ctx.globalAlpha=al;rr(ctx,seg.x*CELL+2,seg.y*CELL+2,CELL-4,CELL-4,3);ctx.fill();
+    }
+    ctx.restore();
+  });
+
+  if(!food)return;
+  const pulse=.85+Math.sin(Date.now()/200)*.15;
+  ctx.save();
+  if(photos.food){
+    ctx.shadowColor='#ff2244';ctx.shadowBlur=16*pulse;
+    ctx.beginPath();ctx.arc(food.x*CELL+CELL/2,food.y*CELL+CELL/2,CELL/2-.5,0,Math.PI*2);
+    ctx.strokeStyle='#ff2244';ctx.lineWidth=2.5;ctx.globalAlpha=pulse;ctx.stroke();
+    ctx.shadowBlur=0;ctx.globalAlpha=1;
+    dcp(photos.food,food.x*CELL+CELL/2,food.y*CELL+CELL/2,CELL/2-2);
+    ctx.globalAlpha=.5*pulse;ctx.font=`bold ${Math.floor(CELL*.46)}px serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#ff6688';
+    ctx.fillText('❤',food.x*CELL+CELL/2,food.y*CELL+CELL*.36);
+  } else {
+    ctx.shadowColor='#ff2244';ctx.shadowBlur=18*pulse;ctx.fillStyle='#ff2244';ctx.globalAlpha=pulse;
+    rr(ctx,food.x*CELL+3,food.y*CELL+3,CELL-6,CELL-6,5);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.4)';ctx.globalAlpha=.4*pulse;
+    ctx.beginPath();ctx.arc(food.x*CELL+CELL*.35,food.y*CELL+CELL*.35,2.5,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+  drawP();
+}
+
+// ════════════════════════════════════════
+// GAME STEP
+// ════════════════════════════════════════
+let frameCtr=0;
+function step(){
+  dir={...nextDir};
+  const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+  if(head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS){endGame();return;}
+  if(snake.some(s=>s.x===head.x&&s.y===head.y)){endGame();return;}
+  snake.unshift(head);
+
+  // Move food in 2p / online-host
+  if(gameMode===2||(gameMode===3&&onlineRole==='host')){
+    foodStepCtr++;
+    if(foodStepCtr>=FOOD_DIV){
+      foodStepCtr=0;
+      foodDir={...nextFoodDir};
+      if(foodDir.x!==0||foodDir.y!==0){
+        food.x=((food.x+foodDir.x)+COLS)%COLS;
+        food.y=((food.y+foodDir.y)+ROWS)%ROWS;
+      }
+    }
+  }
+
+  if(head.x===food.x&&head.y===food.y){
+    spawnP(food.x,food.y);
+    score+=level*10;level=Math.min(8,Math.floor(snake.length/5)+1);
+    placeFood();updateUI();
+  } else {snake.pop();}
+
+  updateP();draw();
+
+  // Online: send frame to guest every tick
+  if(gameMode===3&&onlineRole==='host'){
+    frameCtr++;
+    if(frameCtr%1===0) // every tick
+      sendToGuest({type:'frame',snake,food,score,level});
+  }
+}
+
+function updateUI(){
+  const s=String(score).padStart(4,'0');
+  const hs=String(Math.max(score,highScore)).padStart(4,'0');
+  const lv=String(level).padStart(2,'0');
+  ['score','scoreG'].forEach(id=>document.getElementById(id).textContent=s);
+  ['highscore','highscoreG'].forEach(id=>document.getElementById(id).textContent=hs);
+  ['level','levelG'].forEach(id=>document.getElementById(id).textContent=lv);
+  updateSpeedDisplay();
+}
+function updateSpeedDisplay(){if(!T||level===undefined)return;document.getElementById('speedInfo').textContent=T.speedLabel+(T.speedNames[(level||1)-1]||'');}
+
+// ════════════════════════════════════════
+// UI TRANSITIONS
+// ════════════════════════════════════════
+function hideSetup(){
+  const w=document.getElementById('setupWrap');w.classList.add('hiding');
+  setTimeout(()=>w.classList.add('gone'),380);
+  document.getElementById('gameStats').classList.add('vis');
+}
+function showSetup(){
+  const w=document.getElementById('setupWrap');w.classList.remove('gone','hiding');
+  document.getElementById('gameStats').classList.remove('vis');
+}
+
+// ════════════════════════════════════════
+// START / END
+// ════════════════════════════════════════
+function startGame(fromGuest=false){
+  hideSetup();
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  foodStepCtr=0;frameCtr=0;
+  initGame();running=true;clearTimeout(gameLoop);
+
+  // Online dpad routing
+  if(gameMode===3){
+    document.getElementById('snakeDpw').style.display=onlineRole==='host'?'flex':'none';
+    document.getElementById('foodDpw').style.display=onlineRole==='guest'?'flex':'none';
+    if(onlineRole==='host'&&!fromGuest) sendToGuest({type:'start'});
+    // Guest: just draw frames received from host — no local step()
+    if(onlineRole==='guest'){
+      (function af(){if(running)draw();requestAnimationFrame(af);})();
+      return;
+    }
+  }
+
+  function tick(){if(!running)return;step();gameLoop=setTimeout(tick,SPEEDS[level-1]);}
+  tick();
+  (function af(){if(running)draw();requestAnimationFrame(af);})();
+}
+
+function endGame(fromRemote=false){
+  running=false;clearTimeout(gameLoop);
+  if(gameMode===3&&onlineRole==='host'&&!fromRemote) sendToGuest({type:'over'});
+  const isNew=score>highScore;
+  if(isNew){highScore=score;localStorage.setItem('snakeHS',highScore);}
+  document.getElementById('finalScore').textContent=T.scoreTxt+String(score).padStart(4,'0');
+  document.getElementById('newRecord').style.display=isNew?'block':'none';
+  document.getElementById('newRecord').textContent=T.newRecord;
+  document.getElementById('gameOverScreen').classList.remove('hidden');
+  ctx.save();ctx.fillStyle='rgba(255,34,68,0.18)';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.restore();
+  setTimeout(showSetup,700);
+}
+
+// ════════════════════════════════════════
+// CONTROLS
+// ════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  switch(e.key){
+    case 'ArrowUp':if(dir&&dir.y!==1)nextDir={x:0,y:-1};e.preventDefault();break;
+    case 'ArrowDown':if(dir&&dir.y!==-1)nextDir={x:0,y:1};e.preventDefault();break;
+    case 'ArrowLeft':if(dir&&dir.x!==1)nextDir={x:-1,y:0};e.preventDefault();break;
+    case 'ArrowRight':if(dir&&dir.x!==-1)nextDir={x:1,y:0};e.preventDefault();break;
+    case 'w':case 'W':setFoodDir({x:0,y:-1});break;
+    case 's':case 'S':setFoodDir({x:0,y:1});break;
+    case 'a':case 'A':setFoodDir({x:-1,y:0});break;
+    case 'd':case 'D':setFoodDir({x:1,y:0});break;
+  }
+});
+function setFoodDir(d){
+  if(gameMode===2)nextFoodDir=d;
+  else if(gameMode===3&&onlineRole==='guest'){nextFoodDir=d;sendToHost({type:'foodDir',dir:d});}
+}
+
+document.querySelectorAll('.db[data-dir]').forEach(btn=>{
+  const act=e=>{
+    e.preventDefault();
+    const role=btn.dataset.role,d=btn.dataset.dir;
+    const map={UP:{x:0,y:-1},DOWN:{x:0,y:1},LEFT:{x:-1,y:0},RIGHT:{x:1,y:0}};
+    if(role==='snake'&&dir){
+      const nd=map[d];
+      if(d==='UP'&&dir.y!==1)nextDir=nd;
+      if(d==='DOWN'&&dir.y!==-1)nextDir=nd;
+      if(d==='LEFT'&&dir.x!==1)nextDir=nd;
+      if(d==='RIGHT'&&dir.x!==-1)nextDir=nd;
+    } else if(role==='food'){setFoodDir(map[d]);}
+  };
+  btn.addEventListener('touchstart',act,{passive:false});
+  btn.addEventListener('mousedown',act);
+});
+
+let tsX,tsY;
+canvas.addEventListener('touchstart',e=>{tsX=e.touches[0].clientX;tsY=e.touches[0].clientY;e.preventDefault();},{passive:false});
+canvas.addEventListener('touchend',e=>{
+  if(!dir)return;
+  const dx=e.changedTouches[0].clientX-tsX,dy=e.changedTouches[0].clientY-tsY;
+  if(Math.abs(dx)>Math.abs(dy)){
+    if(dx>18&&dir.x!==-1)nextDir={x:1,y:0};
+    else if(dx<-18&&dir.x!==1)nextDir={x:-1,y:0};
+  } else {
+    if(dy>18&&dir.y!==-1)nextDir={x:0,y:1};
+    else if(dy<-18&&dir.y!==1)nextDir={x:0,y:-1};
+  }
+  e.preventDefault();
+},{passive:false});
+
+document.getElementById('startBtn').addEventListener('click',()=>startGame());
+document.getElementById('restartBtn').addEventListener('click',()=>startGame());
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+setLang(lang);
+document.getElementById('highscore').textContent=String(highScore).padStart(4,'0');
+document.getElementById('highscoreG').textContent=String(highScore).padStart(4,'0');
+restorePhotos();
+level=1;updateSpeedDisplay();
+draw();
+checkAutoJoin();
+</script>
+
+<!-- QR lib — loaded last, non-blocking -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</body>
+</html>
